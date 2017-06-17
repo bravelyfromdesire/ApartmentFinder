@@ -1,0 +1,23 @@
+
+MIN_PRICE = 800
+MAX_PRICE = 1500
+
+def handle(data):
+    # filter status
+    room_status = data['room_status']
+    if not room_status:
+        return False
+    
+    # filter price
+    room_price = int(data['room_price'])
+    if room_price < MIN_PRICE:
+        return False
+    elif room_price > MAX_PRICE:
+        return False
+
+    # filter area
+    room_area = int(data['room_area'])
+
+    # filter direction
+
+    # filter location

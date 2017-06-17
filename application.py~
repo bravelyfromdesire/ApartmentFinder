@@ -1,0 +1,11 @@
+# Apartment_finder
+from ziroom_finder import getMetaDataFromZiroom
+from dataHandler import handle
+
+# get Data
+room_metadata = getMetaDataFromZiroom()
+
+# handle Data
+filteredData = handle(room_metadata)
+
+
