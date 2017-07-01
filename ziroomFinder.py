@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
+import re
 
-site_url = 'http://www.ziroom.com/z/vr/157745.html'
 headers = {'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
            'Accept-Encoding':'gzip, deflate, sdch',
            'Accept-Language':'zh-CN,zh;q=0.8',
@@ -10,31 +10,53 @@ headers = {'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image
            'Host':'www.ziroom.com',
            'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
 
-def getMetaDataFromZiroom():
+def getMetaDataFromZiroom(site_url):
+    print(site_url)
     response = requests.get(site_url, headers=headers)
     response.raise_for_status()  # Something failed?
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    # no-sale ?
-    room_status = soup.find('a', id='zreserve')
-    if not room_status:
-        room_status = False
-    else:
-        room_status = True
+    # no page ?
+    noPage = soup.find('div', class_='nopage')
+    if noPage:
+        return False, False
 
-    # name
-    room_name = soup.find('div', class_='room_name').h2.string.strip()
+    try:
+        # internalLinks
+        internalLinkTags = soup.findAll(href=re.compile('/z/vr/[0-9]+\.html'))
+        internalLinks = set()
+        for internalLinkTag in internalLinkTags:
+            internalLinks.add('http://www.ziroom.com'+internalLinkTag['href'])
+        
+        # upsale ?
+        room_status = soup.find('a', id='zreserve')
+        if not room_status:
+            room_status = False
+        else:
+            room_status = True
 
-    # price
-    room_price = soup.find('span', class_='room_price').string.strip('￥')
+        # name
+        room_name = soup.find('div', class_='room_name').h2.get_text().strip()
 
-    # house area and direction
-    room_detail = soup.find('ul', class_='detail_room').contents
-    room_area = str(room_detail[1]).strip('㎡</li>').strip('<li><b></b>面积： ')
-    room_direction = str(room_detail[3]).strip('</li>').strip('<li><b></b>朝向： ')
+        # price
+        pricePattern = re.compile(r'[-+]?[0-9]*\.?[0-9]+')
+        room_price = pricePattern.search(soup.find('span', class_='room_price').get_text()).group()
+
+        # house area and direction
+        room_detail = soup.find('ul', class_='detail_room').contents
+        areaPattern = re.compile(r'[-+]?[0-9]*\.?[0-9]+')
+        room_area = areaPattern.search((room_detail[1]).get_text()).group()
+        directionPattern = re.compile(r'[东南西北]')
+        room_direction = directionPattern.search((room_detail[5]).get_text()).group()
     
-    room_location_tag = soup.find(attrs={'data-lng':True})
-    room_location = [room_location_tag['data-lng'], room_location_tag['data-lat']]
+        room_location_tag = soup.find(attrs={'data-lng':True})
+        room_location = [room_location_tag['data-lng'], room_location_tag['data-lat']]
+
+    except:
+        if internalLinks:
+            return False, internalLinks
+        else:
+            return False, False
     
     return {'room_name':room_name,
             'room_price':room_price,
@@ -42,7 +64,7 @@ def getMetaDataFromZiroom():
             'room_direction':room_direction,
             'room_location':room_location,
             'room_status':room_status
-    }
+    }, internalLinks
         
 
 
